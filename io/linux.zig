@@ -144,10 +144,10 @@ pub const IO = struct {
                     // it was completed due to the completion of an event, in which case `cqe.res`
                     // would be 0. It is possible for multiple timeout operations to complete at the
                     // same time if the nanoseconds value passed to `run_for_ns()` is very short.
-                    if (-cqe.res == @enumToInt(os.E.TIME)) etime.* = true;
+                    if (-cqe.res == @intFromEnum(os.E.TIME)) etime.* = true;
                     continue;
                 }
-                const completion = @intToPtr(*Completion, @intCast(usize, cqe.user_data));
+                const completion = @as(*Completion, @ptrFromInt(@as(usize, @intCast(cqe.user_data))));
                 completion.result = cqe.res;
                 // We do not run the completion here (instead appending to a linked list) to avoid:
                 // * recursion through `flush_submissions()` and `flush_completions()`,
@@ -244,7 +244,7 @@ pub const IO = struct {
                     );
                 },
             }
-            sqe.user_data = @ptrToInt(completion);
+            sqe.user_data = @intFromPtr(completion);
         }
 
         fn complete(completion: *Completion) void {
@@ -252,7 +252,7 @@ pub const IO = struct {
                 .accept => {
                     const result: AcceptError!os.socket_t = blk: {
                         if (completion.result < 0) {
-                            const err = switch (@intToEnum(os.E, -completion.result)) {
+                            const err = switch (@as(os.E, @enumFromInt(-completion.result))) {
                                 .INTR => {
                                     completion.io.enqueue(completion);
                                     return;
@@ -274,7 +274,7 @@ pub const IO = struct {
                             };
                             break :blk err;
                         } else {
-                            break :blk @intCast(os.socket_t, completion.result);
+                            break :blk @as(os.socket_t, @intCast(completion.result));
                         }
                     };
                     completion.callback(completion.context, completion, &result);
@@ -282,7 +282,7 @@ pub const IO = struct {
                 .close => {
                     const result: CloseError!void = blk: {
                         if (completion.result < 0) {
-                            const err = switch (@intToEnum(os.E, -completion.result)) {
+                            const err = switch (@as(os.E, @enumFromInt(-completion.result))) {
                                 .INTR => {}, // A success, see https://github.com/ziglang/zig/issues/2425
                                 .BADF => error.FileDescriptorInvalid,
                                 .DQUOT => error.DiskQuota,
@@ -300,7 +300,7 @@ pub const IO = struct {
                 .connect => {
                     const result: ConnectError!void = blk: {
                         if (completion.result < 0) {
-                            const err = switch (@intToEnum(os.E, -completion.result)) {
+                            const err = switch (@as(os.E, @enumFromInt(-completion.result))) {
                                 .INTR => {
                                     completion.io.enqueue(completion);
                                     return;
@@ -334,7 +334,7 @@ pub const IO = struct {
                 .read => {
                     const result: ReadError!usize = blk: {
                         if (completion.result < 0) {
-                            const err = switch (@intToEnum(os.E, -completion.result)) {
+                            const err = switch (@as(os.E, @enumFromInt(-completion.result))) {
                                 .INTR => {
                                     completion.io.enqueue(completion);
                                     return;
@@ -356,7 +356,7 @@ pub const IO = struct {
                             };
                             break :blk err;
                         } else {
-                            break :blk @intCast(usize, completion.result);
+                            break :blk @as(usize, @intCast(completion.result));
                         }
                     };
                     completion.callback(completion.context, completion, &result);
@@ -364,7 +364,7 @@ pub const IO = struct {
                 .recv => {
                     const result: RecvError!usize = blk: {
                         if (completion.result < 0) {
-                            const err = switch (@intToEnum(os.E, -completion.result)) {
+                            const err = switch (@as(os.E, @enumFromInt(-completion.result))) {
                                 .INTR => {
                                     completion.io.enqueue(completion);
                                     return;
@@ -384,7 +384,7 @@ pub const IO = struct {
                             };
                             break :blk err;
                         } else {
-                            break :blk @intCast(usize, completion.result);
+                            break :blk @as(usize, @intCast(completion.result));
                         }
                     };
                     completion.callback(completion.context, completion, &result);
@@ -392,7 +392,7 @@ pub const IO = struct {
                 .send => {
                     const result: SendError!usize = blk: {
                         if (completion.result < 0) {
-                            const err = switch (@intToEnum(os.E, -completion.result)) {
+                            const err = switch (@as(os.E, @enumFromInt(-completion.result))) {
                                 .INTR => {
                                     completion.io.enqueue(completion);
                                     return;
@@ -419,14 +419,14 @@ pub const IO = struct {
                             };
                             break :blk err;
                         } else {
-                            break :blk @intCast(usize, completion.result);
+                            break :blk @as(usize, @intCast(completion.result));
                         }
                     };
                     completion.callback(completion.context, completion, &result);
                 },
                 .timeout => {
                     assert(completion.result < 0);
-                    const result: TimeoutError!void = switch (@intToEnum(os.E, -completion.result)) {
+                    const result: TimeoutError!void = switch (@as(os.E, @enumFromInt(-completion.result))) {
                         .INTR => {
                             completion.io.enqueue(completion);
                             return;
@@ -440,7 +440,7 @@ pub const IO = struct {
                 .write => {
                     const result: WriteError!usize = blk: {
                         if (completion.result < 0) {
-                            const err = switch (@intToEnum(os.E, -completion.result)) {
+                            const err = switch (@as(os.E, @enumFromInt(-completion.result))) {
                                 .INTR => {
                                     completion.io.enqueue(completion);
                                     return;
@@ -463,7 +463,7 @@ pub const IO = struct {
                             };
                             break :blk err;
                         } else {
-                            break :blk @intCast(usize, completion.result);
+                            break :blk @as(usize, @intCast(completion.result));
                         }
                     };
                     completion.callback(completion.context, completion, &result);
@@ -541,9 +541,9 @@ pub const IO = struct {
             .callback = struct {
                 fn wrapper(ctx: ?*anyopaque, comp: *Completion, res: *const anyopaque) void {
                     callback(
-                        @intToPtr(Context, @ptrToInt(ctx)),
+                        @as(Context, @ptrFromInt(@intFromPtr(ctx))),
                         comp,
-                        @intToPtr(*const AcceptError!os.socket_t, @ptrToInt(res)).*,
+                        @as(*const AcceptError!os.socket_t, @ptrFromInt(@intFromPtr(res))).*,
                     );
                 }
             }.wrapper,
@@ -583,9 +583,9 @@ pub const IO = struct {
             .callback = struct {
                 fn wrapper(ctx: ?*anyopaque, comp: *Completion, res: *const anyopaque) void {
                     callback(
-                        @intToPtr(Context, @ptrToInt(ctx)),
+                        @as(Context, @ptrFromInt(@intFromPtr(ctx))),
                         comp,
-                        @intToPtr(*const CloseError!void, @ptrToInt(res)).*,
+                        @as(*const CloseError!void, @ptrFromInt(@intFromPtr(res))).*,
                     );
                 }
             }.wrapper,
@@ -634,9 +634,9 @@ pub const IO = struct {
             .callback = struct {
                 fn wrapper(ctx: ?*anyopaque, comp: *Completion, res: *const anyopaque) void {
                     callback(
-                        @intToPtr(Context, @ptrToInt(ctx)),
+                        @as(Context, @ptrFromInt(@intFromPtr(ctx))),
                         comp,
-                        @intToPtr(*const ConnectError!void, @ptrToInt(res)).*,
+                        @as(*const ConnectError!void, @ptrFromInt(@intFromPtr(res))).*,
                     );
                 }
             }.wrapper,
@@ -682,9 +682,9 @@ pub const IO = struct {
             .callback = struct {
                 fn wrapper(ctx: ?*anyopaque, comp: *Completion, res: *const anyopaque) void {
                     callback(
-                        @intToPtr(Context, @ptrToInt(ctx)),
+                        @as(Context, @ptrFromInt(@intFromPtr(ctx))),
                         comp,
-                        @intToPtr(*const ReadError!usize, @ptrToInt(res)).*,
+                        @as(*const ReadError!usize, @ptrFromInt(@intFromPtr(res))).*,
                     );
                 }
             }.wrapper,
@@ -730,9 +730,9 @@ pub const IO = struct {
             .callback = struct {
                 fn wrapper(ctx: ?*anyopaque, comp: *Completion, res: *const anyopaque) void {
                     callback(
-                        @intToPtr(Context, @ptrToInt(ctx)),
+                        @as(Context, @ptrFromInt(@intFromPtr(ctx))),
                         comp,
-                        @intToPtr(*const RecvError!usize, @ptrToInt(res)).*,
+                        @as(*const RecvError!usize, @ptrFromInt(@intFromPtr(res))).*,
                     );
                 }
             }.wrapper,
@@ -781,9 +781,9 @@ pub const IO = struct {
             .callback = struct {
                 fn wrapper(ctx: ?*anyopaque, comp: *Completion, res: *const anyopaque) void {
                     callback(
-                        @intToPtr(Context, @ptrToInt(ctx)),
+                        @as(Context, @ptrFromInt(@intFromPtr(ctx))),
                         comp,
-                        @intToPtr(*const SendError!usize, @ptrToInt(res)).*,
+                        @as(*const SendError!usize, @ptrFromInt(@intFromPtr(res))).*,
                     );
                 }
             }.wrapper,
@@ -817,9 +817,9 @@ pub const IO = struct {
             .callback = struct {
                 fn wrapper(ctx: ?*anyopaque, comp: *Completion, res: *const anyopaque) void {
                     callback(
-                        @intToPtr(Context, @ptrToInt(ctx)),
+                        @as(Context, @ptrFromInt(@intFromPtr(ctx))),
                         comp,
-                        @intToPtr(*const TimeoutError!void, @ptrToInt(res)).*,
+                        @as(*const TimeoutError!void, @ptrFromInt(@intFromPtr(res))).*,
                     );
                 }
             }.wrapper,
@@ -832,7 +832,7 @@ pub const IO = struct {
 
         // Special case a zero timeout as a yield.
         if (nanoseconds == 0) {
-            completion.result = -@intCast(i32, @enumToInt(std.os.E.TIME));
+            completion.result = -@as(i32, @intCast(@intFromEnum(std.os.E.TIME)));
             self.completed.push(completion);
             return;
         }
@@ -874,9 +874,9 @@ pub const IO = struct {
             .callback = struct {
                 fn wrapper(ctx: ?*anyopaque, comp: *Completion, res: *const anyopaque) void {
                     callback(
-                        @intToPtr(Context, @ptrToInt(ctx)),
+                        @as(Context, @ptrFromInt(@intFromPtr(ctx))),
                         comp,
-                        @intToPtr(*const WriteError!usize, @ptrToInt(res)).*,
+                        @as(*const WriteError!usize, @ptrFromInt(@intFromPtr(res))).*,
                     );
                 }
             }.wrapper,
@@ -1030,7 +1030,7 @@ pub const IO = struct {
             const res = os.linux.openat(dir_fd, path, os.O.CLOEXEC | os.O.RDONLY | os.O.DIRECT, 0);
             switch (os.linux.getErrno(res)) {
                 .SUCCESS => {
-                    os.close(@intCast(os.fd_t, res));
+                    os.close(@as(os.fd_t, @intCast(res)));
                     return true;
                 },
                 .INTR => continue,
@@ -1045,7 +1045,7 @@ pub const IO = struct {
     fn fs_allocate(fd: os.fd_t, size: u64) !void {
         const mode: i32 = 0;
         const offset: i64 = 0;
-        const length = @intCast(i64, size);
+        const length = @as(i64, @intCast(size));
 
         while (true) {
             const rc = os.linux.fallocate(fd, mode, offset, length);
