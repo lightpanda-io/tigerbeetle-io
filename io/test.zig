@@ -225,7 +225,7 @@ test "timeout" {
             defer self.io.deinit();
 
             var completions: [count]IO.Completion = undefined;
-            for (completions) |*completion| {
+            for (&completions) |*completion| {
                 self.io.timeout(
                     *Context,
                     &self,
@@ -275,7 +275,7 @@ test "submission queue full" {
             defer self.io.deinit();
 
             var completions: [count]IO.Completion = undefined;
-            for (completions) |*completion| {
+            for (&completions) |*completion| {
                 self.io.timeout(
                     *Context,
                     &self,
@@ -365,7 +365,7 @@ test "tick to wait" {
             // Start receiving on the client
             var recv_completion: IO.Completion = undefined;
             var recv_buffer: [64]u8 = undefined;
-            std.mem.set(u8, &recv_buffer, 0xaa);
+            @memset(&recv_buffer, 0xaa);
             self.io.recv(
                 *Context,
                 &self,
@@ -497,8 +497,8 @@ test "pipe data over socket" {
             const rx_buf = try testing.allocator.alloc(u8, buffer_size);
             defer testing.allocator.free(rx_buf);
 
-            std.mem.set(u8, tx_buf, 1);
-            std.mem.set(u8, rx_buf, 0);
+            @memset(tx_buf, 1);
+            @memset(rx_buf, 0);
             var self = Context{
                 .io = try IO.init(32, 0),
                 .tx = .{ .buffer = tx_buf },
