@@ -225,7 +225,7 @@ test "timeout" {
             defer self.io.deinit();
 
             var completions: [count]IO.Completion = undefined;
-            for (completions) |*completion| {
+            for (&completions) |*completion| {
                 self.io.timeout(
                     *Context,
                     &self,
@@ -241,7 +241,7 @@ test "timeout" {
 
             try testing.expectApproxEqAbs(
                 @as(f64, ms),
-                @intToFloat(f64, (self.stop_time - start_time) / std.time.ns_per_ms),
+                @as(f64, @floatFromInt((self.stop_time - start_time) / std.time.ns_per_ms)),
                 margin,
             );
         }
@@ -275,7 +275,7 @@ test "submission queue full" {
             defer self.io.deinit();
 
             var completions: [count]IO.Completion = undefined;
-            for (completions) |*completion| {
+            for (&completions) |*completion| {
                 self.io.timeout(
                     *Context,
                     &self,
@@ -365,7 +365,7 @@ test "tick to wait" {
             // Start receiving on the client
             var recv_completion: IO.Completion = undefined;
             var recv_buffer: [64]u8 = undefined;
-            std.mem.set(u8, &recv_buffer, 0xaa);
+            @memset(&recv_buffer, 0xaa);
             self.io.recv(
                 *Context,
                 &self,
@@ -465,7 +465,7 @@ test "tick to wait" {
                     else => |err| return os.windows.unexpectedWSAError(err),
                 }
             } else {
-                return @intCast(usize, rc);
+                return @as(usize, @intCast(rc));
             }
         }
     }.run_test();
@@ -497,8 +497,8 @@ test "pipe data over socket" {
             const rx_buf = try testing.allocator.alloc(u8, buffer_size);
             defer testing.allocator.free(rx_buf);
 
-            std.mem.set(u8, tx_buf, 1);
-            std.mem.set(u8, rx_buf, 0);
+            @memset(tx_buf, 1);
+            @memset(rx_buf, 0);
             var self = Context{
                 .io = try IO.init(32, 0),
                 .tx = .{ .buffer = tx_buf },
@@ -544,7 +544,7 @@ test "pipe data over socket" {
             while (self.rx.transferred != self.rx.buffer.len) : (tick +%= 1) {
                 if (tick % 61 == 0) {
                     const timeout_ns = tick % (10 * std.time.ns_per_ms);
-                    try self.io.run_for_ns(@intCast(u63, timeout_ns));
+                    try self.io.run_for_ns(@as(u63, @intCast(timeout_ns)));
                 } else {
                     try self.io.tick();
                 }
