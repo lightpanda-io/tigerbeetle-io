@@ -1,0 +1,37 @@
+name: test
+
+env:
+  ZIG_VERSION: 0.11.0
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**/*.zig"
+      - "src/*.zig"
+  pull_request:
+    branches:
+      - main
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install zig
+        run: |
+          curl https://ziglang.org/download/${{env.ZIG_VERSION}}/zig-linux-x86_64-${{env.ZIG_VERSION}}.tar.xz -L -o zig.tar.xz
+          tar -xf zig.tar.xz
+          echo "$(pwd)/zig-linux-x86_64-${{env.ZIG_VERSION}}" >> $GITHUB_PATH
+      - run: zig test constants.zig
+      - run: zig test fifo.zig
+      - run: zig test io.zig
+      - run: zig test time.zig
