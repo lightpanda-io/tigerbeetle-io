@@ -1,4 +1,4 @@
-name: test
+name: zig-test
 
 env:
   ZIG_VERSION: 0.11.0
@@ -17,20 +17,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
-    name: test
+  zig-test:
+    name: zig test
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/browsercore/zig-v8:${{env.ZIG_VERSION}}
+      credentials:
+       username: ${{ github.actor }}
+       password: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Install zig
-        run: |
-          curl https://ziglang.org/download/${{env.ZIG_VERSION}}/zig-linux-x86_64-${{env.ZIG_VERSION}}.tar.xz -L -o zig.tar.xz
-          tar -xf zig.tar.xz
-          echo "$(pwd)/zig-linux-x86_64-${{env.ZIG_VERSION}}" >> $GITHUB_PATH
       - run: zig test constants.zig
       - run: zig test fifo.zig
       - run: zig test io.zig

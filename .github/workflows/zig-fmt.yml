@@ -1,4 +1,3 @@
-# Original version: https://github.com/oven-sh/bun/blob/main/.github/workflows/zig-fmt.yml
 name: zig-fmt
 
 env:
@@ -15,6 +14,12 @@ jobs:
   zig-fmt:
     name: zig fmt
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/browsercore/zig-v8:${{env.ZIG_VERSION}}
+      credentials:
+       username: ${{ github.actor }}
+       password: ${{ secrets.GITHUB_TOKEN }}
+
     outputs:
       zig_fmt_errs: ${{ steps.fmt.outputs.zig_fmt_errs }}
     steps:
@@ -23,11 +28,6 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Install zig
-        run: |
-          curl https://ziglang.org/download/${{env.ZIG_VERSION}}/zig-linux-x86_64-${{env.ZIG_VERSION}}.tar.xz -L -o zig.tar.xz
-          tar -xf zig.tar.xz
-          echo "$(pwd)/zig-linux-x86_64-${{env.ZIG_VERSION}}" >> $GITHUB_PATH
       - name: Run zig fmt
         id: fmt
         run: |
