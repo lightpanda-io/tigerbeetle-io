@@ -1,6 +1,12 @@
-name: zig-fmt
+name: test
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**/*.zig"
+      - "src/*.zig"
   pull_request:
     branches:
       - main
@@ -8,6 +14,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  git-checkout:
+    name: git checkout
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
   zig-fmt:
     name: zig fmt
     runs-on: ubuntu-latest
@@ -16,15 +31,13 @@ jobs:
       credentials:
        username: ${{ github.actor }}
        password: ${{ secrets.GITHUB_TOKEN }}
+      volumes:
+        - ${{github.workspace}}:${{github.workspace}}
     outputs:
       zig_fmt_errs: ${{ steps.fmt.outputs.zig_fmt_errs }}
+    needs: git-checkout
 
     steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
       - name: Run zig fmt
         id: fmt
         run: |
@@ -46,3 +59,21 @@ jobs:
       - name: Fail the job
         if: steps.fmt.outputs.zig_fmt_errs != ''
         run: exit 1
+
+  zig-test:
+    name: zig test
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/browsercore/zig:0.11.0
+      credentials:
+       username: ${{ github.actor }}
+       password: ${{ secrets.GITHUB_TOKEN }}
+      volumes:
+        - ${{github.workspace}}:${{github.workspace}}
+    needs: git-checkout
+
+    steps:
+      - run: zig test constants.zig
+      - run: zig test fifo.zig
+      - run: zig test io.zig
+      - run: zig test time.zig
