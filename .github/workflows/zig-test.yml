@@ -18,7 +18,7 @@ jobs:
     name: zig test
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/lightpanda-io/zig:0.11.0
+      image: ghcr.io/lightpanda-io/zig:0.12.1
       credentials:
        username: ${{ github.actor }}
        password: ${{ secrets.GITHUB_TOKEN }}
