@@ -239,6 +239,9 @@ pub const IO = struct {
                         op.offset,
                     );
                 },
+                .cancel => |op| {
+                    sqe.prep_cancel(op.c, 0);
+                },
             }
             sqe.user_data = @intFromPtr(completion);
         }
@@ -464,6 +467,22 @@ pub const IO = struct {
                     };
                     completion.callback(completion.context, completion, &result);
                 },
+                .cancel => {
+                    const result: CancelError!void = blk: {
+                        if (completion.result < 0) {
+                            const err = switch (@as(posix.E, @enumFromInt(-completion.result))) {
+                                .SUCCESS => {},
+                                .NOENT => error.NotFound,
+                                .ALREADY => error.ExpirationInProgress,
+                                else => |errno| posix.unexpectedErrno(errno),
+                            };
+                            break :blk err;
+                        } else {
+                            break :blk;
+                        }
+                    };
+                    completion.callback(completion.context, completion, &result);
+                },
             }
         }
     };
@@ -502,6 +521,9 @@ pub const IO = struct {
             fd: posix.fd_t,
             buffer: []const u8,
             offset: u64,
+        },
+        cancel: struct {
+            c: u64,
         },
     };
 
@@ -790,6 +812,42 @@ pub const IO = struct {
                 },
             },
         };
+        self.enqueue(completion);
+    }
+
+    pub const CancelError = error{ NotFound, ExpirationInProgress } || posix.UnexpectedError;
+
+    pub fn cancel(
+        self: *IO,
+        comptime Context: type,
+        context: Context,
+        comptime callback: fn (
+            context: Context,
+            completion: *Completion,
+            result: CancelError!void,
+        ) void,
+        completion: *Completion,
+        cancel_completion: *Completion,
+    ) void {
+        completion.* = .{
+            .io = self,
+            .context = context,
+            .callback = struct {
+                fn wrapper(ctx: ?*anyopaque, comp: *Completion, res: *const anyopaque) void {
+                    callback(
+                        @as(Context, @ptrFromInt(@intFromPtr(ctx))),
+                        comp,
+                        @as(*const CancelError!void, @ptrFromInt(@intFromPtr(res))).*,
+                    );
+                }
+            }.wrapper,
+            .operation = .{
+                .cancel = .{
+                    .c = @intFromPtr(cancel_completion),
+                },
+            },
+        };
+
         self.enqueue(completion);
     }
 
