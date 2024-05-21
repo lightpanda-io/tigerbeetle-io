@@ -557,6 +557,28 @@ pub const IO = struct {
         );
     }
 
+    pub const CancelError = error{ NotFound, ExpirationInProgress } || posix.UnexpectedError;
+
+    pub fn cancel(
+        self: *IO,
+        comptime Context: type,
+        context: Context,
+        comptime callback: fn (
+            context: Context,
+            completion: *Completion,
+            result: CancelError!void,
+        ) void,
+        completion: *Completion,
+        cancel_completion: *Completion,
+    ) void {
+        _ = self;
+        _ = context;
+        _ = callback;
+        _ = completion;
+        _ = cancel_completion;
+        // TODO implement cancellation w/ kqueue.
+    }
+
     pub const TimeoutError = error{Canceled} || posix.UnexpectedError;
 
     pub fn timeout(
