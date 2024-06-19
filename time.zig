@@ -48,8 +48,8 @@ pub const Time = struct {
             // https://opensource.apple.com/source/Libc/Libc-1158.1.2/gen/clock_gettime.c.auto.html
             if (is_darwin) {
                 const darwin = struct {
-                    const mach_timebase_info_t = os.darwin.mach_timebase_info_data;
-                    extern "c" fn mach_timebase_info(info: *mach_timebase_info_t) os.darwin.kern_return_t;
+                    const mach_timebase_info_t = std.c.mach_timebase_info_data;
+                    extern "c" fn mach_timebase_info(info: *mach_timebase_info_t) std.c.kern_return_t;
                     extern "c" fn mach_continuous_time() u64;
                 };
 
