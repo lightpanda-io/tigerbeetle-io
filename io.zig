@@ -6,11 +6,19 @@ const os = std.os;
 const FIFO = @import("fifo.zig").FIFO;
 const IO_Linux = @import("io/linux.zig").IO;
 const IO_Darwin = @import("io/darwin.zig").IO;
+// const IO_Windows = @import("io/windows.zig").IO;
 
 pub const IO = switch (builtin.target.os.tag) {
     .linux => IO_Linux,
+    // .windows => IO_Windows,
     .macos, .tvos, .watchos, .ios => IO_Darwin,
     else => @compileError("IO is not supported for platform"),
+};
+
+pub const DirectIO = enum {
+    direct_io_required,
+    direct_io_optional,
+    direct_io_disabled,
 };
 
 pub fn buffer_limit(buffer_len: usize) usize {
