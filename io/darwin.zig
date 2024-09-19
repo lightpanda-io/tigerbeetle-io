@@ -577,6 +577,7 @@ pub const IO = struct {
         _ = completion;
         _ = cancel_completion;
         // TODO implement cancellation w/ kqueue.
+        log.debug("cancel implementation is missing on macOS", .{});
     }
 
     pub const TimeoutError = error{Canceled} || posix.UnexpectedError;
