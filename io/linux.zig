@@ -269,6 +269,7 @@ pub const IO = struct {
                                 .OPNOTSUPP => error.OperationNotSupported,
                                 .PERM => error.PermissionDenied,
                                 .PROTO => error.ProtocolFailure,
+                                .CANCELED => error.Canceled,
                                 else => |errno| posix.unexpectedErrno(errno),
                             };
                             break :blk err;
@@ -287,6 +288,7 @@ pub const IO = struct {
                                 .DQUOT => error.DiskQuota,
                                 .IO => error.InputOutput,
                                 .NOSPC => error.NoSpaceLeft,
+                                .CANCELED => error.Canceled,
                                 else => |errno| posix.unexpectedErrno(errno),
                             };
                             break :blk err;
@@ -321,6 +323,7 @@ pub const IO = struct {
                                 .PERM => error.PermissionDenied,
                                 .PROTOTYPE => error.ProtocolNotSupported,
                                 .TIMEDOUT => error.ConnectionTimedOut,
+                                .CANCELED => error.Canceled,
                                 else => |errno| posix.unexpectedErrno(errno),
                             };
                             break :blk err;
@@ -351,6 +354,7 @@ pub const IO = struct {
                                 .OVERFLOW => error.Unseekable,
                                 .SPIPE => error.Unseekable,
                                 .TIMEDOUT => error.ConnectionTimedOut,
+                                .CANCELED => error.Canceled,
                                 else => |errno| posix.unexpectedErrno(errno),
                             };
                             break :blk err;
@@ -379,6 +383,7 @@ pub const IO = struct {
                                 .CONNRESET => error.ConnectionResetByPeer,
                                 .TIMEDOUT => error.ConnectionTimedOut,
                                 .OPNOTSUPP => error.OperationNotSupported,
+                                .CANCELED => error.Canceled,
                                 else => |errno| posix.unexpectedErrno(errno),
                             };
                             break :blk err;
@@ -414,6 +419,7 @@ pub const IO = struct {
                                 .OPNOTSUPP => error.OperationNotSupported,
                                 .PIPE => error.BrokenPipe,
                                 .TIMEDOUT => error.ConnectionTimedOut,
+                                .CANCELED => error.Canceled,
                                 else => |errno| posix.unexpectedErrno(errno),
                             };
                             break :blk err;
@@ -458,6 +464,7 @@ pub const IO = struct {
                                 .PERM => error.AccessDenied,
                                 .PIPE => error.BrokenPipe,
                                 .SPIPE => error.Unseekable,
+                                .CANCELED => error.Canceled,
                                 else => |errno| posix.unexpectedErrno(errno),
                             };
                             break :blk err;
@@ -539,6 +546,7 @@ pub const IO = struct {
         OperationNotSupported,
         PermissionDenied,
         ProtocolFailure,
+        Canceled,
     } || posix.UnexpectedError;
 
     pub fn accept(
@@ -581,6 +589,7 @@ pub const IO = struct {
         DiskQuota,
         InputOutput,
         NoSpaceLeft,
+        Canceled,
     } || posix.UnexpectedError;
 
     pub fn close(
@@ -631,6 +640,7 @@ pub const IO = struct {
         PermissionDenied,
         ProtocolNotSupported,
         ConnectionTimedOut,
+        Canceled,
     } || posix.UnexpectedError;
 
     pub fn connect(
@@ -678,6 +688,7 @@ pub const IO = struct {
         SystemResources,
         Unseekable,
         ConnectionTimedOut,
+        Canceled,
     } || posix.UnexpectedError;
 
     pub fn read(
@@ -727,6 +738,7 @@ pub const IO = struct {
         ConnectionResetByPeer,
         ConnectionTimedOut,
         OperationNotSupported,
+        Canceled,
     } || posix.UnexpectedError;
 
     pub fn recv(
@@ -778,6 +790,7 @@ pub const IO = struct {
         OperationNotSupported,
         BrokenPipe,
         ConnectionTimedOut,
+        Canceled,
     } || posix.UnexpectedError;
 
     pub fn send(
@@ -906,6 +919,7 @@ pub const IO = struct {
         Unseekable,
         AccessDenied,
         BrokenPipe,
+        Canceled,
     } || posix.UnexpectedError;
 
     pub fn write(
