@@ -7,6 +7,9 @@ const io_uring_cqe = linux.io_uring_cqe;
 const io_uring_sqe = linux.io_uring_sqe;
 const log = std.log.scoped(.io);
 
+const stdx = @import("../stdx.zig");
+const parse_dirty_semver = stdx.parse_dirty_semver;
+
 const constants = @import("../constants.zig");
 const FIFO = @import("../fifo.zig").FIFO;
 const buffer_limit = @import("../io.zig").buffer_limit;
@@ -24,8 +27,7 @@ pub const IO = struct {
     pub fn init(entries: u12, flags: u32) !IO {
         // Detect the linux version to ensure that we support all io_uring ops used.
         const uts = posix.uname();
-        const release = std.mem.sliceTo(&uts.release, 0);
-        const version = try std.SemanticVersion.parse(release);
+        const version = try parse_dirty_semver(&uts.release);
         if (version.order(std.SemanticVersion{ .major = 5, .minor = 5, .patch = 0 }) == .lt) {
             @panic("Linux kernel 5.5 or greater is required for io_uring OP_ACCEPT");
         }
