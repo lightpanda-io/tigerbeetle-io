@@ -34,3 +34,4 @@ jobs:
       - run: zig test fifo.zig
       - run: zig test io.zig
       - run: zig test time.zig
+      - run: zig test stdx.zig
