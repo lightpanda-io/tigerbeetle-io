@@ -1,16 +1,28 @@
 const std = @import("std");
 const assert = std.debug.assert;
 
+const constants = @import("./constants.zig");
+
 /// An intrusive first in/first out linked list.
 /// The element type T must have a field called "next" of type ?*T
-pub fn FIFO(comptime T: type) type {
+pub fn FIFOType(comptime T: type) type {
     return struct {
-        const Self = @This();
+        const FIFO = @This();
 
         in: ?*T = null,
         out: ?*T = null,
+        count: u64 = 0,
 
-        pub fn push(self: *Self, elem: *T) void {
+        // This should only be null if you're sure we'll never want to monitor `count`.
+        name: ?[]const u8,
+
+        // If the number of elements is large, the constants.verify check in push() can be too
+        // expensive. Allow the user to gate it. Could also be a comptime param?
+        verify_push: bool = true,
+
+        pub fn push(self: *FIFO, elem: *T) void {
+            if (constants.verify and self.verify_push) assert(!self.contains(elem));
+
             assert(elem.next == null);
             if (self.in) |in| {
                 in.next = elem;
@@ -20,28 +32,43 @@ pub fn FIFO(comptime T: type) type {
                 self.in = elem;
                 self.out = elem;
             }
+            self.count += 1;
         }
 
-        pub fn pop(self: *Self) ?*T {
+        pub fn pop(self: *FIFO) ?*T {
             const ret = self.out orelse return null;
             self.out = ret.next;
             ret.next = null;
             if (self.in == ret) self.in = null;
+            self.count -= 1;
             return ret;
         }
 
-        pub fn peek(self: Self) ?*T {
+        pub fn peek_last(self: FIFO) ?*T {
+            return self.in;
+        }
+
+        pub fn peek(self: FIFO) ?*T {
             return self.out;
         }
 
-        pub fn empty(self: Self) bool {
+        pub fn empty(self: FIFO) bool {
             return self.peek() == null;
+        }
+
+        /// Returns whether the linked list contains the given *exact element* (pointer comparison).
+        pub fn contains(self: *const FIFO, elem_needle: *const T) bool {
+            var iterator = self.peek();
+            while (iterator) |elem| : (iterator = elem.next) {
+                if (elem == elem_needle) return true;
+            }
+            return false;
         }
 
         /// Remove an element from the FIFO. Asserts that the element is
         /// in the FIFO. This operation is O(N), if this is done often you
         /// probably want a different data structure.
-        pub fn remove(self: *Self, to_remove: *T) void {
+        pub fn remove(self: *FIFO, to_remove: *T) void {
             if (to_remove == self.out) {
                 _ = self.pop();
                 return;
@@ -52,14 +79,19 @@ pub fn FIFO(comptime T: type) type {
                     if (to_remove == self.in) self.in = elem;
                     elem.next = to_remove.next;
                     to_remove.next = null;
+                    self.count -= 1;
                     break;
                 }
             } else unreachable;
         }
+
+        pub fn reset(self: *FIFO) void {
+            self.* = .{ .name = self.name };
+        }
     };
 }
 
-test "push/pop/peek/remove/empty" {
+test "FIFO: push/pop/peek/remove/empty" {
     const testing = @import("std").testing;
 
     const Foo = struct { next: ?*@This() = null };
@@ -68,17 +100,23 @@ test "push/pop/peek/remove/empty" {
     var two: Foo = .{};
     var three: Foo = .{};
 
-    var fifo: FIFO(Foo) = .{};
+    var fifo: FIFOType(Foo) = .{ .name = null };
     try testing.expect(fifo.empty());
 
     fifo.push(&one);
     try testing.expect(!fifo.empty());
     try testing.expectEqual(@as(?*Foo, &one), fifo.peek());
+    try testing.expect(fifo.contains(&one));
+    try testing.expect(!fifo.contains(&two));
+    try testing.expect(!fifo.contains(&three));
 
     fifo.push(&two);
     fifo.push(&three);
     try testing.expect(!fifo.empty());
     try testing.expectEqual(@as(?*Foo, &one), fifo.peek());
+    try testing.expect(fifo.contains(&one));
+    try testing.expect(fifo.contains(&two));
+    try testing.expect(fifo.contains(&three));
 
     fifo.remove(&one);
     try testing.expect(!fifo.empty());
@@ -86,6 +124,9 @@ test "push/pop/peek/remove/empty" {
     try testing.expectEqual(@as(?*Foo, &three), fifo.pop());
     try testing.expectEqual(@as(?*Foo, null), fifo.pop());
     try testing.expect(fifo.empty());
+    try testing.expect(!fifo.contains(&one));
+    try testing.expect(!fifo.contains(&two));
+    try testing.expect(!fifo.contains(&three));
 
     fifo.push(&one);
     fifo.push(&two);

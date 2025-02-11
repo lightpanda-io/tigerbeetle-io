@@ -1,6 +1,5 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const assert = std.debug.assert;
 const os = std.os;
 
 const FIFO = @import("fifo.zig").FIFO;
@@ -11,6 +10,12 @@ pub const IO = switch (builtin.target.os.tag) {
     .linux => IO_Linux,
     .macos, .tvos, .watchos, .ios => IO_Darwin,
     else => @compileError("IO is not supported for platform"),
+};
+
+pub const DirectIO = enum {
+    direct_io_required,
+    direct_io_optional,
+    direct_io_disabled,
 };
 
 pub fn buffer_limit(buffer_len: usize) usize {
