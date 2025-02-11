@@ -1,6 +1,34 @@
 //! Extensions to the standard library -- things which could have been in std, but aren't.
 
 const std = @import("std");
+const builtin = @import("builtin");
+const assert = std.debug.assert;
+
+/// `maybe` is the dual of `assert`: it signals that condition is sometimes true
+///  and sometimes false.
+///
+/// Currently we use it for documentation, but maybe one day we plug it into
+/// coverage.
+pub fn maybe(ok: bool) void {
+    assert(ok or !ok);
+}
+
+pub const log = if (builtin.is_test)
+    // Downgrade `err` to `warn` for tests.
+    // Zig fails any test that does `log.err`, but we want to test those code paths here.
+    struct {
+        pub fn scoped(comptime scope: @Type(.EnumLiteral)) type {
+            const base = std.log.scoped(scope);
+            return struct {
+                pub const err = warn;
+                pub const warn = base.warn;
+                pub const info = base.info;
+                pub const debug = base.debug;
+            };
+        }
+    }
+else
+    std.log;
 
 // std.SemanticVersion requires there be no extra characters after the
 // major/minor/patch numbers. But when we try to parse `uname
@@ -61,4 +89,19 @@ test "stdx.zig: parse_dirty_semver" {
         const version = try parse_dirty_semver(case.dirty_release);
         try std.testing.expectEqual(case.expected_version, version);
     }
+}
+
+/// Like std.posix's `unexpectedErrno()` but log unconditionally, not just when mode=Debug.
+/// The added `label` argument works around the absence of stack traces in ReleaseSafe builds.
+pub fn unexpected_errno(label: []const u8, err: std.posix.system.E) std.posix.UnexpectedError {
+    log.scoped(.stdx).err("unexpected errno: {s}: code={d} name={?s}", .{
+        label,
+        @intFromEnum(err),
+        std.enums.tagName(std.posix.system.E, err),
+    });
+
+    if (builtin.mode == .Debug) {
+        std.debug.dumpCurrentStackTrace(null);
+    }
+    return error.Unexpected;
 }
