@@ -292,14 +292,32 @@ pub const IO = struct {
         }
     }
 
-    pub fn cancel(_: *IO, _: *Completion) void {
+    pub const CancelOneError = error{ NotFound, ExpirationInProgress } || posix.UnexpectedError;
+
+    pub fn cancel_one(
+        self: *IO,
+        comptime Context: type,
+        context: Context,
+        comptime callback: fn (
+            context: Context,
+            completion: *Completion,
+            result: CancelOneError!void,
+        ) void,
+        completion: *Completion,
+        cancel_completion: *Completion,
+    ) void {
+        _ = self;
+        _ = context;
+        _ = callback;
+        _ = completion;
+        _ = cancel_completion;
         // TODO implement cancellation w/ kqueue.
-        log.debug("cancel implementation is missing on macOS", .{});
+        log.debug("cancel_one implementation is missing on macOS", .{});
     }
 
     pub fn cancel_all(_: *IO) void {
         // TODO Cancel in-flight async IO and wait for all completions.
-        log.debug("cancel all implementation is missing on macOS", .{});
+        log.debug("cancel_all implementation is missing on macOS", .{});
     }
 
     pub const AcceptError = posix.AcceptError || posix.SetSockOptError;
