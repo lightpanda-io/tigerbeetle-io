@@ -331,7 +331,7 @@ pub const IO = struct {
         assert(self.ios_in_kernel == 0);
     }
 
-    pub fn cancel(self: *IO, target: *Completion) void {
+    fn cancel(self: *IO, target: *Completion) void {
         self.cancel_completion = .{
             .io = self,
             .context = self,
@@ -376,6 +376,42 @@ pub const IO = struct {
         };
     }
 
+    pub const CancelOneError = error{ NotFound, ExpirationInProgress } || posix.UnexpectedError;
+
+    pub fn cancel_one(
+        self: *IO,
+        comptime Context: type,
+        context: Context,
+        comptime callback: fn (
+            context: Context,
+            completion: *Completion,
+            result: CancelOneError!void,
+        ) void,
+        completion: *Completion,
+        cancel_one_completion: *Completion,
+    ) void {
+        completion.* = .{
+            .io = self,
+            .context = context,
+            .callback = struct {
+                fn wrapper(ctx: ?*anyopaque, comp: *Completion, res: *const anyopaque) void {
+                    callback(
+                        @as(Context, @ptrFromInt(@intFromPtr(ctx))),
+                        comp,
+                        @as(*const CancelOneError!void, @ptrFromInt(@intFromPtr(res))).*,
+                    );
+                }
+            }.wrapper,
+            .operation = .{
+                .cancel_one = .{
+                    .c = @intFromPtr(cancel_one_completion),
+                },
+            },
+        };
+
+        self.enqueue(completion);
+    }
+
     /// This struct holds the data needed for a single io_uring operation
     pub const Completion = struct {
         io: *IO,
@@ -395,6 +431,9 @@ pub const IO = struct {
 
         fn prep(completion: *Completion, sqe: *io_uring_sqe) void {
             switch (completion.operation) {
+                .cancel_one => |op| {
+                    sqe.prep_cancel(op.c, 0);
+                },
                 .cancel => |op| {
                     sqe.prep_cancel(@intFromPtr(op.target), 0);
                 },
@@ -465,6 +504,22 @@ pub const IO = struct {
 
         fn complete(completion: *Completion) void {
             switch (completion.operation) {
+                .cancel_one => {
+                    const result: CancelOneError!void = blk: {
+                        if (completion.result < 0) {
+                            const err = switch (@as(posix.E, @enumFromInt(-completion.result))) {
+                                .SUCCESS => {},
+                                .NOENT => error.NotFound,
+                                .ALREADY => error.ExpirationInProgress,
+                                else => |errno| posix.unexpectedErrno(errno),
+                            };
+                            break :blk err;
+                        } else {
+                            break :blk;
+                        }
+                    };
+                    completion.callback(completion.context, completion, &result);
+                },
                 .cancel => {
                     const result: CancelError!void = result: {
                         if (completion.result < 0) {
@@ -797,6 +852,9 @@ pub const IO = struct {
 
     /// This union encodes the set of operations supported as well as their arguments.
     const Operation = union(enum) {
+        cancel_one: struct {
+            c: u64,
+        },
         cancel: struct {
             target: *Completion,
         },

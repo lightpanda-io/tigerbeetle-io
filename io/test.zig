@@ -900,3 +900,62 @@ test "cancel_all" {
         }
     }.run_test();
 }
+
+test "cancel_one" {
+    try struct {
+        const Context = @This();
+
+        io: IO,
+        timeout_res: IO.TimeoutError!void = undefined,
+        timeout_done: bool = false,
+        cancel_done: bool = false,
+
+        fn run_test() !void {
+            var self: Context = .{
+                .io = try IO.init(32, 0),
+            };
+            defer self.io.deinit();
+
+            var completion: IO.Completion = undefined;
+            self.io.timeout(
+                *Context,
+                &self,
+                timeout_callback,
+                &completion,
+                100 * std.time.ns_per_ms,
+            );
+
+            var cancel_one_completion: IO.Completion = undefined;
+            self.io.cancel_one(
+                *Context,
+                &self,
+                cancel_one_callback,
+                &cancel_one_completion,
+                &completion,
+            );
+            while (!self.cancel_done and !self.timeout_done) try self.io.tick();
+
+            try testing.expectEqual(true, self.timeout_done);
+            try testing.expectEqual(true, self.cancel_done);
+            try testing.expectError(IO.TimeoutError.Canceled, self.timeout_res);
+        }
+
+        fn timeout_callback(
+            self: *Context,
+            _: *IO.Completion,
+            result: IO.TimeoutError!void,
+        ) void {
+            self.timeout_res = result;
+            self.timeout_done = true;
+        }
+
+        fn cancel_one_callback(
+            self: *Context,
+            _: *IO.Completion,
+            result: IO.CancelOneError!void,
+        ) void {
+            result catch |err| std.debug.panic("cancel one error: {}", .{err});
+            self.cancel_done = true;
+        }
+    }.run_test();
+}
