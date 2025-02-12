@@ -4,6 +4,8 @@ const std = @import("std");
 const builtin = @import("builtin");
 const assert = std.debug.assert;
 
+pub const aegis = @import("./stdx/aegis.zig");
+
 /// `maybe` is the dual of `assert`: it signals that condition is sometimes true
 ///  and sometimes false.
 ///
@@ -17,7 +19,7 @@ pub const log = if (builtin.is_test)
     // Downgrade `err` to `warn` for tests.
     // Zig fails any test that does `log.err`, but we want to test those code paths here.
     struct {
-        pub fn scoped(comptime scope: @Type(.EnumLiteral)) type {
+        pub fn scoped(comptime scope: @Type(.enum_literal)) type {
             const base = std.log.scoped(scope);
             return struct {
                 pub const err = warn;
