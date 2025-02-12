@@ -67,9 +67,8 @@ pub const Time = struct {
             // CLOCK_BOOTTIME is the same as CLOCK_MONOTONIC but includes elapsed time during a suspend.
             // For more detail and why CLOCK_MONOTONIC_RAW is even worse than CLOCK_MONOTONIC,
             // see https://github.com/ziglang/zig/pull/933#discussion_r656021295.
-            var ts: std.posix.timespec = undefined;
-            std.posix.clock_gettime(std.posix.CLOCK.BOOTTIME, &ts) catch @panic("CLOCK_BOOTTIME required");
-            break :blk @as(u64, @intCast(ts.tv_sec)) * std.time.ns_per_s + @as(u64, @intCast(ts.tv_nsec));
+            const ts = std.posix.clock_gettime(std.posix.CLOCK.BOOTTIME) catch @panic("CLOCK_BOOTTIME required");
+            break :blk @as(u64, @intCast(ts.sec)) * std.time.ns_per_s + @as(u64, @intCast(ts.nsec));
         };
 
         // "Oops!...I Did It Again"
@@ -105,7 +104,7 @@ pub const Time = struct {
 
         var ts: std.posix.timespec = undefined;
         std.posix.clock_gettime(std.posix.CLOCK.REALTIME, &ts) catch unreachable;
-        return @as(i64, ts.tv_sec) * std.time.ns_per_s + ts.tv_nsec;
+        return @as(i64, ts.sec) * std.time.ns_per_s + ts.nsec;
     }
 
     pub fn tick(_: *Self) void {}
