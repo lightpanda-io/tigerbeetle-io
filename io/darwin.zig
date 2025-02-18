@@ -97,8 +97,8 @@ pub const IO = struct {
             if (change_events == 0 and self.completed.empty()) {
                 if (wait_for_completions) {
                     const timeout_ns = next_timeout orelse @panic("kevent() blocking forever");
-                    ts.tv_nsec = @as(@TypeOf(ts.tv_nsec), @intCast(timeout_ns % std.time.ns_per_s));
-                    ts.tv_sec = @as(@TypeOf(ts.tv_sec), @intCast(timeout_ns / std.time.ns_per_s));
+                    ts.nsec = @as(@TypeOf(ts.nsec), @intCast(timeout_ns % std.time.ns_per_s));
+                    ts.sec = @as(@TypeOf(ts.sec), @intCast(timeout_ns / std.time.ns_per_s));
                 } else if (self.io_inflight == 0) {
                     return;
                 }
@@ -140,19 +140,19 @@ pub const IO = struct {
             io_pending_top.* = completion.next;
 
             const event_info = switch (completion.operation) {
-                .accept => |op| [2]c_int{ op.socket, posix.system.EVFILT_READ },
-                .connect => |op| [2]c_int{ op.socket, posix.system.EVFILT_WRITE },
-                .read => |op| [2]c_int{ op.fd, posix.system.EVFILT_READ },
-                .write => |op| [2]c_int{ op.fd, posix.system.EVFILT_WRITE },
-                .recv => |op| [2]c_int{ op.socket, posix.system.EVFILT_READ },
-                .send => |op| [2]c_int{ op.socket, posix.system.EVFILT_WRITE },
+                .accept => |op| [2]c_int{ op.socket, posix.system.EVFILT.READ },
+                .connect => |op| [2]c_int{ op.socket, posix.system.EVFILT.WRITE },
+                .read => |op| [2]c_int{ op.fd, posix.system.EVFILT.READ },
+                .write => |op| [2]c_int{ op.fd, posix.system.EVFILT.WRITE },
+                .recv => |op| [2]c_int{ op.socket, posix.system.EVFILT.READ },
+                .send => |op| [2]c_int{ op.socket, posix.system.EVFILT.WRITE },
                 else => @panic("invalid completion operation queued for io"),
             };
 
             event.* = .{
                 .ident = @as(u32, @intCast(event_info[0])),
                 .filter = @as(i16, @intCast(event_info[1])),
-                .flags = posix.system.EV_ADD | posix.system.EV_ENABLE | posix.system.EV_ONESHOT,
+                .flags = posix.system.EV.ADD | posix.system.EV.ENABLE | posix.system.EV.ONESHOT,
                 .fflags = 0,
                 .data = 0,
                 .udata = @intFromPtr(completion),
@@ -198,45 +198,55 @@ pub const IO = struct {
     };
 
     const Operation = union(enum) {
-        accept: struct {
+        accept: Accept,
+        close: Close,
+        connect: Connect,
+        fsync: FSync,
+        read: Read,
+        recv: Recv,
+        send: Send,
+        timeout: Timeout,
+        write: Write,
+
+        const Accept = struct {
             socket: posix.socket_t,
-        },
-        close: struct {
+        };
+        const Close = struct {
             fd: fd_t,
-        },
-        connect: struct {
+        };
+        const Connect = struct {
             socket: posix.socket_t,
             address: std.net.Address,
             initiated: bool,
-        },
-        fsync: struct {
+        };
+        const FSync = struct {
             fd: fd_t,
-        },
-        read: struct {
+        };
+        const Read = struct {
             fd: fd_t,
             buf: [*]u8,
             len: u32,
             offset: u64,
-        },
-        recv: struct {
+        };
+        const Recv = struct {
             socket: posix.socket_t,
             buf: [*]u8,
             len: u32,
-        },
-        send: struct {
+        };
+        const Send = struct {
             socket: posix.socket_t,
             buf: [*]const u8,
             len: u32,
-        },
-        timeout: struct {
+        };
+        const Timeout = struct {
             expires: u64,
-        },
-        write: struct {
+        };
+        const Write = struct {
             fd: fd_t,
             buf: [*]const u8,
             len: u32,
             offset: u64,
-        },
+        };
     };
 
     fn submit(
@@ -339,9 +349,7 @@ pub const IO = struct {
             callback,
             completion,
             .accept,
-            .{
-                .socket = socket,
-            },
+            Operation.Accept{ .socket = socket },
             struct {
                 fn do_operation(op: anytype) AcceptError!posix.socket_t {
                     const fd = try posix.accept(
@@ -398,9 +406,7 @@ pub const IO = struct {
             callback,
             completion,
             .close,
-            .{
-                .fd = fd,
-            },
+            Operation.Close{ .fd = fd },
             struct {
                 fn do_operation(op: anytype) CloseError!void {
                     return switch (posix.errno(posix.system.close(op.fd))) {
@@ -435,7 +441,7 @@ pub const IO = struct {
             callback,
             completion,
             .connect,
-            .{
+            Operation.Connect{
                 .socket = socket,
                 .address = address,
                 .initiated = false,
@@ -479,9 +485,7 @@ pub const IO = struct {
             callback,
             completion,
             .fsync,
-            .{
-                .fd = fd,
-            },
+            Operation.FSync{ .fd = fd },
             struct {
                 fn do_operation(op: anytype) FsyncError!void {
                     return fs_sync(op.fd);
@@ -523,7 +527,7 @@ pub const IO = struct {
             callback,
             completion,
             .read,
-            .{
+            Operation.Read{
                 .fd = fd,
                 .buf = buffer.ptr,
                 .len = @as(u32, @intCast(buffer_limit(buffer.len))),
@@ -582,7 +586,7 @@ pub const IO = struct {
             callback,
             completion,
             .recv,
-            .{
+            Operation.Recv{
                 .socket = socket,
                 .buf = buffer.ptr,
                 .len = @as(u32, @intCast(buffer_limit(buffer.len))),
@@ -615,7 +619,7 @@ pub const IO = struct {
             callback,
             completion,
             .send,
-            .{
+            Operation.Send{
                 .socket = socket,
                 .buf = buffer.ptr,
                 .len = @as(u32, @intCast(buffer_limit(buffer.len))),
@@ -666,7 +670,7 @@ pub const IO = struct {
             callback,
             completion,
             .timeout,
-            .{
+            Operation.Timeout{
                 .expires = self.time.monotonic() + nanoseconds,
             },
             struct {
@@ -730,8 +734,8 @@ pub const IO = struct {
 
         var kev = mem.zeroes([1]posix.Kevent);
         kev[0].ident = event;
-        kev[0].filter = posix.system.EVFILT_USER;
-        kev[0].flags = posix.system.EV_ADD | posix.system.EV_ENABLE | posix.system.EV_CLEAR;
+        kev[0].filter = posix.system.EVFILT.USER;
+        kev[0].flags = posix.system.EV.ADD | posix.system.EV.ENABLE | posix.system.EV.CLEAR;
 
         const polled = posix.kevent(self.kq, &kev, kev[0..0], null) catch |err| switch (err) {
             error.AccessDenied => unreachable, // EV_FILTER is allowed for every user.
@@ -770,8 +774,8 @@ pub const IO = struct {
 
         var kev = mem.zeroes([1]posix.Kevent);
         kev[0].ident = event;
-        kev[0].filter = posix.system.EVFILT_USER;
-        kev[0].fflags = posix.system.NOTE_TRIGGER;
+        kev[0].filter = posix.system.EVFILT.USER;
+        kev[0].fflags = posix.system.NOTE.TRIGGER;
         kev[0].udata = @intFromPtr(completion);
 
         const polled: usize = posix.kevent(self.kq, &kev, kev[0..0], null) catch unreachable;
@@ -783,8 +787,8 @@ pub const IO = struct {
 
         var kev = mem.zeroes([1]posix.Kevent);
         kev[0].ident = event;
-        kev[0].filter = posix.system.EVFILT_USER;
-        kev[0].flags = posix.system.EV_DELETE;
+        kev[0].filter = posix.system.EVFILT.USER;
+        kev[0].flags = posix.system.EV.DELETE;
         kev[0].udata = 0; // Not needed for EV_DELETE.
 
         const polled = posix.kevent(self.kq, &kev, kev[0..0], null) catch unreachable;
