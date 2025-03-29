@@ -19,7 +19,12 @@ on:
 jobs:
   zig-test:
     name: zig test
-    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: mlugg/setup-zig@v1
