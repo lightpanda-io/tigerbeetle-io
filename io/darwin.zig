@@ -20,6 +20,8 @@ pub const IO = struct {
     completed: FIFOType(Completion) = .{ .name = "io_completed" },
     io_pending: FIFOType(Completion) = .{ .name = "io_pending" },
 
+    pub const supports_cancel = false;
+
     pub fn init(entries: u12, flags: u32) !IO {
         _ = entries;
         _ = flags;
