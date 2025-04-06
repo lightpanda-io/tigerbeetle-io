@@ -57,6 +57,8 @@ pub const IO = struct {
         done,
     } = .inactive,
 
+    pub const supports_cancel = true;
+
     pub fn init(entries: u12, flags: u32) !IO {
         // Detect the linux version to ensure that we support all io_uring ops used.
         const uts = posix.uname();

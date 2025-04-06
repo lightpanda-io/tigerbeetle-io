@@ -1,0 +1,7 @@
+.{
+    .name = .tigerbeetle_io,
+    .paths = .{""},
+    .version = "0.0.0",
+    .fingerprint = 0xd9a00cc8c6e02256,
+    .dependencies = .{},
+}
