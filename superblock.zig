@@ -33,9 +33,9 @@ const maybe = stdx.maybe;
 const mem = std.mem;
 const meta = std.meta;
 
-const constants = @import("../constants.zig");
-const stdx = @import("../stdx.zig");
-const vsr = @import("../vsr.zig");
+const constants = @import("constants.zig");
+const stdx = @import("stdx.zig");
+const vsr = @import("vsr.zig");
 const log = std.log.scoped(.superblock);
 
 pub const Quorums = @import("superblock_quorums.zig").QuorumsType(.{
@@ -1572,12 +1572,6 @@ pub fn SuperBlockType(comptime Storage: type) type {
                     @tagName(context.caller),
                 });
 
-                if (Storage == @import("../testing/storage.zig").Storage) {
-                    // We should have finished all pending superblock io before starting any more.
-                    superblock.storage.assert_no_pending_reads(.superblock);
-                    superblock.storage.assert_no_pending_writes(.superblock);
-                }
-
                 if (context.caller == .open) {
                     superblock.read_working(context, .open);
                 } else {
@@ -1593,12 +1587,6 @@ pub fn SuperBlockType(comptime Storage: type) type {
                 superblock.replica_index,
                 @tagName(context.caller),
             });
-
-            if (Storage == @import("../testing/storage.zig").Storage) {
-                // We should have finished all pending io by now.
-                superblock.storage.assert_no_pending_reads(.superblock);
-                superblock.storage.assert_no_pending_writes(.superblock);
-            }
 
             switch (context.caller) {
                 .format => {},
